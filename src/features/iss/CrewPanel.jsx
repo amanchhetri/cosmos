@@ -10,7 +10,7 @@ export function CrewPanel({ crew }) {
       <ul className="mt-2 space-y-1">
         {names.map((name, i) => (
           <motion.li
-            key={name}
+            key={`${name}-${i}`}
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.05 }}
