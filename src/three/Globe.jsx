@@ -1,8 +1,11 @@
 import { useTexture } from "@react-three/drei";
+import { SRGBColorSpace, BackSide } from "three";
 import { EARTH_RADIUS } from "./orbital";
 
 export function Globe() {
-  const day = useTexture("/textures/earth-day.jpg");
+  const day = useTexture("/textures/earth-day.jpg", (t) => {
+    t.colorSpace = SRGBColorSpace;
+  });
   return (
     <group>
       <mesh>
@@ -16,7 +19,7 @@ export function Globe() {
           color="#5b8bff"
           transparent
           opacity={0.12}
-          side={2 /* BackSide */}
+          side={BackSide}
         />
       </mesh>
     </group>
