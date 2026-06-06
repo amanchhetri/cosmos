@@ -54,10 +54,9 @@ export function ISSMarker({ latitude, longitude }) {
     if (lineRef.current && n > 1) {
       const geom = lineRef.current.geometry; // LineGeometry
       // setPositions wants a flat number array of exactly the active vertices.
+      // setPositions allocates internally (three.js fat-line API); our own
+      // per-frame code stays alloc-free.
       geom.setPositions(flat.subarray(0, n * 3));
-      // Re-derived in setPositions, but compute line distances so the Line2
-      // bounding info / (potential) dashing stays consistent.
-      lineRef.current.computeLineDistances();
     }
   });
 
