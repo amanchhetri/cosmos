@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Generic polling data hook.
+ * Note: `loading` reflects the INITIAL load only — it stays false on subsequent polls (refresh failures surface via `error`/`isStale`, not `loading`).
  * @param {(signal: AbortSignal) => Promise<any>} fetcher
  * @param {{ intervalMs?: number, fallback?: any, enabled?: boolean }} opts
  */
@@ -22,7 +23,7 @@ export function useResource(fetcher, opts = {}) {
       setData(result);
       setError(null);
     } catch (err) {
-      if (signal.aborted || err.name === "AbortError") return;
+      if (signal.aborted || err?.name === "AbortError") return;
       setError(err);
       setData(lastGood.current); // degrade to last-good, never to null
     } finally {
