@@ -75,8 +75,10 @@ The only module shipped in v1. Everything else is deferred to later phases.
 
 ### Data reliability (senior consideration)
 - `wheretheiss.at` is the primary, reliable position source.
-- Open-Notify `astros` is **known flaky**: cache the last good response and ship
-  a static fallback crew list so the UI never breaks.
+- Open-Notify `astros` is **known flaky** AND **http-only** — it will be blocked
+  as mixed content on the https Vercel deploy. Mitigation: proxy it through a
+  Vercel serverless/edge function (also lets us cache server-side). Cache the
+  last good response and ship a static fallback crew list so the UI never breaks.
 - All fetches: abortable, with interval cleanup on unmount.
 
 ### Orbital math
@@ -112,7 +114,8 @@ The only module shipped in v1. Everything else is deferred to later phases.
 ## Out of Scope (v1)
 
 - Launch tracking, scrollytelling, APOD, asteroids (later phases).
-- User accounts, persistence, or any backend beyond static hosting.
+- User accounts, persistence, or any backend beyond static hosting + the thin
+  Vercel proxy function noted above for the http-only crew endpoint.
 - React Query / global state libraries.
 
 ## APIs Referenced
