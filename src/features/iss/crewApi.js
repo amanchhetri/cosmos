@@ -2,7 +2,7 @@
 export const FALLBACK_CREW = ["Crew data unavailable"];
 
 export function parseCrew(raw) {
-  return (raw.people ?? [])
+  return (raw?.people ?? [])
     .filter((p) => p.craft === "ISS")
     .map((p) => p.name);
 }
@@ -14,7 +14,7 @@ export async function fetchCrew(signal) {
     const names = parseCrew(await res.json());
     return names.length ? names : FALLBACK_CREW;
   } catch (err) {
-    if (err.name === "AbortError") throw err;
+    if (err?.name === "AbortError") throw err;
     return FALLBACK_CREW;
   }
 }
