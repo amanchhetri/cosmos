@@ -43,6 +43,18 @@ describe("useCameraControl", () => {
     expect(result.current.mode).toBe("manual");
   });
 
+  it("a second endInteraction restarts the countdown from the later release", () => {
+    const { result } = renderHook(() => useCameraControl({ idleMs: 1000 }));
+    act(() => result.current.beginInteraction());
+    act(() => result.current.endInteraction());
+    act(() => vi.advanceTimersByTime(600));
+    act(() => result.current.endInteraction()); // second release supersedes the first
+    act(() => vi.advanceTimersByTime(600)); // 1200ms since first release, 600ms since second
+    expect(result.current.mode).toBe("manual"); // first timer was cleared
+    act(() => vi.advanceTimersByTime(400)); // 1000ms since second release
+    expect(result.current.mode).toBe("auto");
+  });
+
   it("resume() returns to auto and clears the timer", () => {
     const { result } = renderHook(() => useCameraControl({ idleMs: 1000 }));
     act(() => result.current.beginInteraction());
