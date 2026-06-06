@@ -3,8 +3,12 @@ import { Stars } from "@react-three/drei";
 import { Suspense, useRef } from "react";
 import { Globe } from "./Globe";
 import { ISSMarker } from "./ISSMarker";
-import { issPosition } from "./orbital";
 import { usePerfTier } from "./usePerfTier";
+
+const CAMERA_RADIUS = 3;
+const CAMERA_HEIGHT = 0.6;
+const IDLE_SPIN_RATE = 0.05;
+const FOLLOW_LERP_RATE = 0.5;
 
 function AutoFollow({ latitude, longitude, enabled }) {
   // Slowly orient the camera toward the ISS longitude; idle-spin when no fix.
@@ -12,17 +16,23 @@ function AutoFollow({ latitude, longitude, enabled }) {
   const angle = useRef(0);
   useFrame((state, delta) => {
     if (!enabled) {
-      angle.current += delta * 0.05; // idle spin
+      angle.current += delta * IDLE_SPIN_RATE; // idle spin
     } else {
-      const p = issPosition(latitude, longitude);
-      const targetAngle = Math.atan2(p.x, p.z);
-      angle.current += (targetAngle - angle.current) * Math.min(1, delta * 0.5);
+      // Azimuth matches orbital.js's latLonToVector3 convention
+      // (atan2(p.x, p.z) with the cos(lat) factor cancelling), computed
+      // directly from longitude to avoid a per-frame Vector3 allocation.
+      const lon = (longitude * Math.PI) / 180;
+      const targetAngle = Math.atan2(Math.cos(lon), -Math.sin(lon));
+      // Normalize the delta to the shortest signed arc so a fix arriving
+      // after unbounded idle spin doesn't sweep through extra rotations.
+      let d = targetAngle - angle.current;
+      d = Math.atan2(Math.sin(d), Math.cos(d)); // shortest signed delta
+      angle.current += d * Math.min(1, delta * FOLLOW_LERP_RATE);
     }
-    const r = 3;
     state.camera.position.set(
-      Math.sin(angle.current) * r,
-      0.6,
-      Math.cos(angle.current) * r
+      Math.sin(angle.current) * CAMERA_RADIUS,
+      CAMERA_HEIGHT,
+      Math.cos(angle.current) * CAMERA_RADIUS
     );
     state.camera.lookAt(0, 0, 0);
   });
@@ -35,7 +45,7 @@ export function Scene({ iss }) {
   return (
     <Canvas
       dpr={perf.dpr}
-      camera={{ position: [0, 0.6, 3], fov: 45 }}
+      camera={{ position: [0, CAMERA_HEIGHT, CAMERA_RADIUS], fov: 45 }}
       gl={{ antialias: perf.tier === "high" }}
     >
       <ambientLight intensity={0.4} />
