@@ -18,11 +18,27 @@ describe("latLonToVector3", () => {
     const v = latLonToVector3(37, -122, 2);
     expect(v.length()).toBeCloseTo(2);
   });
+
+  it("winds longitude eastward toward -Z (lon 90 → -Z)", () => {
+    const v = latLonToVector3(0, 90);
+    expect(v.z).toBeCloseTo(-1);
+    expect(v.x).toBeCloseTo(0);
+  });
+
+  it("maps the south pole to -Y", () => {
+    const v = latLonToVector3(-90, 0);
+    expect(v.y).toBeCloseTo(-EARTH_RADIUS);
+  });
 });
 
 describe("issPosition", () => {
   it("places the ISS above the Earth surface", () => {
     const v = issPosition(0, 0);
     expect(v.length()).toBeGreaterThan(EARTH_RADIUS);
+  });
+
+  it("places the ISS exactly one orbital altitude above the surface", () => {
+    const v = issPosition(0, 0);
+    expect(v.length()).toBeCloseTo(EARTH_RADIUS + 420 / 6371);
   });
 });
