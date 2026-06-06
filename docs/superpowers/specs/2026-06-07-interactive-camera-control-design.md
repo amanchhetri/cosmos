@@ -41,53 +41,65 @@ A headless hook owning camera-mode state and the idle timer. Single
 responsibility, no R3F/DOM dependency, unit-testable in isolation.
 
 - **State:** `mode: "auto" | "manual"`.
-- **API:** returns `{ mode, enterManual, resume }`.
-  - `enterManual()` — sets `mode = "manual"` and (re)starts the idle timer.
-  - `resume()` — sets `mode = "auto"` and clears the idle timer.
-  - While in manual, each `enterManual()` call (fired on every interaction)
-    resets the 8s countdown; when it fires, the hook auto-resumes.
+- **API:** returns `{ mode, beginInteraction, endInteraction, resume }`.
+  - `beginInteraction()` — sets `mode = "manual"` and **clears** any pending idle
+    timer (the user is actively interacting). Wired to OrbitControls `onStart`.
+  - `endInteraction()` — **starts** the idle timer; when it fires (after `idleMs`),
+    sets `mode = "auto"`. Wired to OrbitControls `onEnd`. Counting from gesture end
+    means a drag longer than `idleMs` never auto-resumes mid-drag, and each new
+    gesture restarts the countdown.
+  - `resume()` — sets `mode = "auto"` and clears the idle timer. Wired to the pill.
 - **Cleanup:** clears any pending timer on unmount.
 - **Param:** `idleMs` (default `8000`) for testability.
 
+> **Why `onStart`/`onEnd`, not `onChange`:** three's `OrbitControls.update()`
+> dispatches a `'change'` event whenever the camera moves *by any cause* —
+> including AutoFollow's own per-frame writes. So `onChange` would fire every
+> frame in auto mode and falsely flip to manual. `'start'`/`'end'` fire only on
+> real user input (pointer/wheel), making them the correct interaction signal.
+
 ### Changed: `src/three/Scene.jsx`
-- Calls `useCameraControl()` and renders `<OrbitControls>` again with
-  `enablePan={false}`, `enableZoom`, `enableDamping`, `minDistance={2}`,
-  `maxDistance={6}`.
-- `OrbitControls` `onChange` → `enterManual()`. Using `onChange` (not `onStart`)
-  means every interaction frame resets the idle countdown, so a drag longer than
-  8s won't auto-resume mid-drag, and the 8s counts from the last camera change
-  (including damping settle). `onChange` is silent in auto mode because
-  `OrbitControls` is disabled there, so it can't spuriously trip the switch.
-- `AutoFollow` receives `active={mode === "auto"}` and its `useFrame` early-returns
-  when not active, so it never fights `OrbitControls`. `OrbitControls` is
-  `enabled={mode === "manual"}` so its damping loop never overwrites the auto camera.
+- Renders `<OrbitControls>` again with `makeDefault`, `enablePan={false}`,
+  `enableZoom`, `enableDamping`, `minDistance={2}`, `maxDistance={6}`,
+  `onStart={onBeginInteraction}`, `onEnd={onEndInteraction}`.
+- **`OrbitControls` stays `enabled` in BOTH modes** (no `enabled={...}` gate).
+  This is required so it can detect the user's grab (`onStart`) in auto mode, and
+  it does **not** fight AutoFollow because of frame ordering: drei runs
+  `controls.update()` at `useFrame` priority `-1` (before AutoFollow at default
+  priority `0`), and three's `update()` re-derives its spherical state from the
+  *current* `camera.position` each frame. So AutoFollow's write becomes
+  OrbitControls' synced state next frame — they agree instead of fighting. (This
+  was verified against `@react-three/drei@10.7.7` / `three@0.184`.)
+- `AutoFollow` receives `active={mode === "auto"}`; its `useFrame` early-returns
+  when not active, yielding the camera fully to the user during manual mode.
 - **Smooth handoff (resume):** `AutoFollow` is changed so that, instead of calling
   `camera.position.set(...)` each frame, it **lerps** `camera.position` toward the
-  computed orbit target (`camera.position.lerp(target, 1 - exp(-k·delta))`,
-  frame-rate-independent damping). On the first active frame after a manual session
-  it also re-seeds `angle.current` from the camera's current XZ azimuth
+  computed orbit target (`camera.position.lerp(target, 1 - exp(-RETURN_DAMP·delta))`,
+  frame-rate-independent). On the first active frame after a manual session it
+  re-seeds `angle.current` from the camera's current XZ azimuth
   (`Math.atan2(camera.position.x, camera.position.z)`) so the azimuth is continuous.
-  Net effect: a zoomed-in / rotated manual view glides back to the live-tracking
-  orbit instead of snapping. (The existing shortest-arc angle easing is retained for
-  tracking the ISS once back on the orbit.)
-- Scene accepts `mode` + `onEnterManual`/`onResume` via props from `App` so the
-  HTML overlay (the pill) can live in the DOM layer. The `useCameraControl` hook
-  is lifted to `App` (it owns both the canvas and the overlay).
+  Net effect: a zoomed-in / rotated manual view **glides** back to the default
+  live-tracking orbit (radius `CAMERA_RADIUS`, height `CAMERA_HEIGHT`) instead of
+  snapping. The shortest-arc angle easing is retained for tracking the ISS.
+- The `useCameraControl` hook is lifted to `App` (it owns both the canvas and the
+  overlay); Scene receives `mode`, `onBeginInteraction`, `onEndInteraction` as props.
 
 ### Changed: `src/App.jsx`
-- Owns `useCameraControl()`, passes `mode` + `enterManual` into `<Scene>` and
-  renders the **Resume pill** as an HTML overlay over the canvas section
-  (top-right, under the status badge), shown only when `mode === "manual"`,
+- Owns `useCameraControl()`, passes `mode` + `beginInteraction` + `endInteraction`
+  into `<Scene>` and renders the **Resume pill** as an HTML overlay over the canvas
+  section (top-right, under the status badge), shown only when `mode === "manual"`,
   with a Framer Motion fade. Clicking it calls `resume()`.
 
-### New: `src/features/iss/ResumeFollowButton.jsx` (or inline in App)
+### New: `src/three/ResumeFollowButton.jsx`
 Small presentational pill: `{ onClick }`, teal instrument styling, an `aria-label`,
-Framer Motion fade in/out. Kept as its own component for clarity and reuse.
+Framer Motion fade in/out. Lives in `src/three/` because it is a control for the
+3D scene's camera (not ISS-domain data). Kept as its own component for clarity.
 
 ## Data flow
 
-`App` → `useCameraControl()` → `{mode, enterManual, resume}`
-- `mode` + `enterManual` → `<Scene>` (gates AutoFollow, wires OrbitControls onStart/enabled)
+`App` → `useCameraControl()` → `{mode, beginInteraction, endInteraction, resume}`
+- `mode` + `beginInteraction` + `endInteraction` → `<Scene>` (gates AutoFollow,
+  wires OrbitControls `onStart`/`onEnd`)
 - `mode === "manual"` → render `<ResumeFollowButton onClick={resume}>`
 
 No change to ISS/crew data hooks.
@@ -96,11 +108,14 @@ No change to ISS/crew data hooks.
 
 - **Unit-test `useCameraControl`** (`useCameraControl.test.js`) with fake timers:
   - starts in `auto`
-  - `enterManual()` → `manual`
-  - idle timer fires after `idleMs` → back to `auto`
-  - interaction (repeat `enterManual`) resets the countdown (does not resume early)
+  - `beginInteraction()` → `manual`
+  - `beginInteraction()` then `endInteraction()`, advance `idleMs` → back to `auto`
+  - `beginInteraction()` alone (no `endInteraction`), advance past `idleMs` → stays
+    `manual` (no timer pending during an active gesture)
+  - after `endInteraction()`, a new `beginInteraction()` clears the pending timer
+    (does not auto-resume)
   - `resume()` → `auto` and clears the timer
-  - timer cleared on unmount (no state update after unmount)
+  - timer cleared on unmount (no state update / no fire after unmount)
 - **Build + run check:** `npm run build`, then run the dev server and confirm the
   pill toggles. OrbitControls drag is hard to assert in a headless screenshot, so
   mode logic is covered by the hook tests; the visual check confirms wiring +
