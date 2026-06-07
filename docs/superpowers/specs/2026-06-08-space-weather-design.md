@@ -49,9 +49,10 @@ never fetch; all data flows through the existing `useResource` polling hook
 
 Endpoints:
 - Kp: `https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json`
-  — array-of-arrays; row 0 is a header `["time_tag","Kp","a_running","station_count"]`,
-  subsequent rows at 3-hour cadence. Parser drops the header row and reads the
-  latest entry.
+  — an **array of objects** `{time_tag, Kp, a_running, station_count}` (verified
+  live 2026-06-08), `Kp` is a number, at 3-hour cadence. Parser reads the latest
+  entry's `Kp`. (Note: this product is NOT the header-row array-of-arrays shape the
+  solar-wind products use — they differ.)
 - Solar wind plasma: `https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json`
   — array-of-arrays, header `["time_tag","density","speed","temperature"]`. Latest row → speed (km/s), density (p/cm³).
 - DONKI: `https://api.nasa.gov/DONKI/notifications?type=all&startDate=…` via proxy,

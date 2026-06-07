@@ -8,15 +8,17 @@ const num = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-// SWPC products are array-of-arrays with a header row at index 0.
+// The solar-wind products are array-of-arrays with a header row at index 0.
 function latestRow(rows) {
   if (!Array.isArray(rows) || rows.length < 2) return null;
   return rows[rows.length - 1];
 }
 
+// The planetary-K product is different: an array of OBJECTS (no header row),
+// with Kp as a number. Read the latest entry's `Kp` field directly.
 export function parseKp(rows) {
-  const row = latestRow(rows);
-  return row ? num(row[1]) : null;
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  return num(rows[rows.length - 1]?.Kp);
 }
 
 export function parseSolarWind(rows) {

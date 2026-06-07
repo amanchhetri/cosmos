@@ -6,10 +6,12 @@ import {
   fetchSpaceWeather,
 } from "./spaceWeatherApi";
 
+// NOAA's planetary-K product is an array of OBJECTS (verified live 2026-06-08),
+// with Kp as a number — NOT the header-row array-of-arrays the solar-wind
+// products use.
 const KP_RAW = [
-  ["time_tag", "Kp", "a_running", "station_count"],
-  ["2026-06-08T00:00:00", "2.33", "9", "8"],
-  ["2026-06-08T03:00:00", "5.67", "48", "8"],
+  { time_tag: "2026-06-08T00:00:00", Kp: 2.33, a_running: 9, station_count: 8 },
+  { time_tag: "2026-06-08T03:00:00", Kp: 5.67, a_running: 48, station_count: 8 },
 ];
 const WIND_RAW = [
   ["time_tag", "density", "speed", "temperature"],
@@ -18,13 +20,13 @@ const WIND_RAW = [
 ];
 
 describe("parseKp", () => {
-  it("returns the latest Kp as a number, dropping the header", () => {
+  it("returns the latest entry's Kp as a number", () => {
     expect(parseKp(KP_RAW)).toBe(5.67);
   });
-  it("returns null for empty or header-only data", () => {
-    expect(parseKp([["time_tag", "Kp"]])).toBeNull();
+  it("returns null for empty, null, or Kp-less rows", () => {
     expect(parseKp([])).toBeNull();
     expect(parseKp(null)).toBeNull();
+    expect(parseKp([{ time_tag: "2026-06-08T00:00:00" }])).toBeNull();
   });
 });
 
