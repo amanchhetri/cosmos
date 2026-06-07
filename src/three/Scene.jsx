@@ -4,6 +4,7 @@ import { Suspense, useRef } from "react";
 import { Vector3 } from "three";
 import { Globe } from "./Globe";
 import { ISSMarker } from "./ISSMarker";
+import { AuroraGlow } from "./AuroraGlow";
 import { usePerfTier } from "./usePerfTier";
 
 const CAMERA_RADIUS = 3;
@@ -61,7 +62,7 @@ function AutoFollow({ longitude, hasFix, active }) {
   return null;
 }
 
-export function Scene({ iss, mode, onBeginInteraction, onEndInteraction }) {
+export function Scene({ iss, mode, auroraIntensity, onBeginInteraction, onEndInteraction }) {
   const perf = usePerfTier();
   const hasFix = iss != null;
   return (
@@ -83,6 +84,7 @@ export function Scene({ iss, mode, onBeginInteraction, onEndInteraction }) {
           HTML loading overlay is owned by App. */}
       <Suspense fallback={null}>
         <Globe />
+        <AuroraGlow intensity={auroraIntensity} />
         {hasFix && (
           <ISSMarker latitude={iss.latitude} longitude={iss.longitude} />
         )}
